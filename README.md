@@ -1,17 +1,25 @@
 # 🚀 Buny Panel v2.0
 
 Modern, gerçek zamanlı ve güvenli bir **Minecraft Server Yönetim Paneli**
-(Node.js + Socket.io + Tailwind CSS)
+(Node.js + Socket.io + Java Agent)
+
+---
+
+## 📸 Görseller
+
+![Panel Görsel 1](https://i.ibb.co/4n0hC5zL/image.png)
+![Panel Görsel 2](https://i.ibb.co/wFPPr2P3/image.png)
 
 ---
 
 ## ✨ Özellikler
 
 * ⚡ Gerçek zamanlı veri akışı
-* 📂 Güvenli dosya yöneticisi (path korumalı)
+* 📂 Güvenli dosya yöneticisi
 * 🖥️ Modern web arayüz
 * 👥 Oyuncu ping takibi
 * 💻 Konsol komut sistemi
+* 🔌 Java Agent entegrasyonu
 * 🌍 Ngrok ile dış erişim
 
 ---
@@ -25,6 +33,7 @@ BunyPanel/
 ├── index.html
 ├── .env
 ├── .gitignore
+├── AgentPlugin/   # Java Plugin (AYRI)
 └── README.md
 ```
 
@@ -35,7 +44,8 @@ BunyPanel/
 ### 1. Gereksinimler
 
 * Node.js (v16+)
-* npm
+* Java 17+ (Plugin için)
+* Minecraft Server (Spigot / Paper önerilir)
 
 ---
 
@@ -56,7 +66,7 @@ PORT=3000
 
 ---
 
-### 4. Sunucuyu Başlat
+### 4. Paneli Başlat
 
 ```bash
 node server.js
@@ -77,22 +87,82 @@ Kullanıcı: admin
 Şifre:    123456
 ```
 
-> ⚠️ Değiştirmen önerilir
+> ⚠️ Production’da değiştir
+
+---
+
+# 🔌 Java Agent Plugin (KRİTİK)
+
+Bu panelin çalışması için Minecraft tarafında **Agent Plugin** olması gerekir.
+
+Bu plugin:
+
+* 📊 Chunk sayısını gönderir
+* 👥 Oyuncu listesini gönderir
+* 📡 Ping bilgilerini iletir
+* 🔄 Veriyi sürekli backend’e yollar
+
+---
+
+## 📡 Agent → Panel Veri Akışı
+
+```
+Minecraft Server → Java Plugin → HTTP POST → Node.js → Socket.io → Panel
+```
+
+---
+
+## 📨 Veri Gönderme Endpoint
+
+Plugin şu endpoint’e veri yollar:
+
+```
+POST /api/server-data
+```
+
+---
+
+## 📦 Örnek JSON
+
+```json
+{
+  "chunks": 1200,
+  "players": [
+    { "name": "bunyaminpalt", "ping": 45 },
+    { "name": "player2", "ping": 320 }
+  ]
+}
+```
+
+---
+
+## ⚙️ Plugin Kurulumu
+
+1. Plugin `.jar` dosyasını al
+2. Minecraft sunucunun:
+
+```
+/plugins/
+```
+
+klasörüne at
+
+3. Sunucuyu başlat
 
 ---
 
 ## 🔒 Güvenlik
 
-* Path traversal koruması var
-* Sunucu dışına çıkılamaz
-* .env gizli tutulur
-* Sadece belirli dosyalar açılır
+* Path traversal koruması vardır
+* Sunucu dışı erişim engellenir
+* Dosya erişimi kontrollüdür
+* `.env` gizlidir
 
 ---
 
 ## 📡 API
 
-### Veri Gönderme
+### Veri Alma
 
 ```
 POST /api/server-data
@@ -125,7 +195,7 @@ POST /api/file/save
 
 ---
 
-## 🌍 Ngrok Kurulum
+## 🌍 Ngrok ile Açma
 
 ### Token ekle
 
@@ -133,13 +203,17 @@ POST /api/file/save
 ngrok config add-authtoken TOKEN
 ```
 
-### Paneli aç
+---
+
+### Panel
 
 ```bash
 ngrok http 3000
 ```
 
-### Minecraft aç
+---
+
+### Minecraft
 
 ```bash
 ngrok tcp 25565
@@ -147,21 +221,21 @@ ngrok tcp 25565
 
 ---
 
-## 🧠 Sistem
+## 🧠 Sistem Mantığı
 
 ```
-Java Agent → Node.js → Socket.io → Panel
+Java Plugin → Backend → Web Panel
 ```
 
 ---
 
 ## 🛠️ Geliştirme
 
-* JWT login sistemi ekle
-* Rate limit ekle
-* Log sistemi geliştir
-* Grafik panel (CPU/RAM)
-* Nginx / Cloudflare ile koru
+* 🔐 JWT login sistemi ekle
+* 📊 Grafik panel (CPU / RAM)
+* 📜 Log sistemi
+* 🛡️ Rate limit (DDOS koruma)
+* 🌐 Domain + SSL
 
 ---
 
