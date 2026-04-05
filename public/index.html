@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Control - Minecraft</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --glass-bg: rgba(30, 41, 59, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        header {
+            padding: 1.5rem 2rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .server-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .server-status-badge.online {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 10px currentColor;
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.5); }
+            100% { opacity: 0.5; transform: scale(1); }
+        }
+
+        /* Tabs Navigation */
+        .tabs-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 2rem 2rem 0 2rem;
+            display: flex;
+            gap: 2rem;
+            border-bottom: 1px solid var(--glass-border);
+            overflow-x: auto;
+        }
+
+        .tab-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        .tab-item:hover {
+            color: var(--text-main);
+        }
+
+        .tab-item.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            text-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Tab Panes */
+        .tab-pane {
+            display: none;
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Main Content Container */
+        .container {
+            padding: 2rem;
+            flex: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            transition: transform 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, currentColor, transparent);
+            opacity: 0.5;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-title {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            display: flex;
+            align-items: baseline;
+            gap: 0.25rem;
+        }
+
+        .stat-unit {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* Console Area */
+        .console-container {
+            background: #000;
+            border-radius: 1rem;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            height: 600px;
+        }
+
+        .console-header {
+            background: #1e293b;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-bottom: 1px solid var(--glass-border);
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .console-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .console-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+            transition: color 0.2s;
+        }
+        .console-btn:hover { color: var(--text-main); }
+
+        .console-output {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: #e2e8f0;
+            line-height: 1.6;
+            scroll-behavior: smooth;
+        }
+
+        .console-output div {
+            word-break: break-all;
+            margin-bottom: 0.125rem;
+        }
+
+        .log-info { color: #94a3b8; }
+        .log-warn { color: #facc15; }
+        .log-error { color: #f87171; }
+        .log-success { color: #4ade80; }
+        .log-panel { color: #a78bfa; font-weight: bold; }
+
+        .console-input-area {
+            display: flex;
+            padding: 1rem;
+            background: #1e293b;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .console-input-area input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .console-input-area input:focus {
+            border-color: var(--primary);
+        }
+
+        /* Sidebar / Controls */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .control-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+        }
+
+        .control-card h3 {
+            margin-bottom: 1.5rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.875rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(255,255,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .btn:hover::after { opacity: 1; }
+        .btn:active { transform: scale(0.98); }
+
+        .btn-start { background: var(--success); }
+        .btn-start:hover { background: #059669; }
+        .btn-stop { background: var(--danger); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); }
+        .btn-stop:hover { background: #dc2626; }
+        .btn-restart { background: var(--warning); color: #000; }
+        .btn-restart:hover { background: #d97706; }
+
+        .prop-item {
+            background: rgba(0,0,0,0.2);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .prop-item span { color: var(--text-muted); font-size: 0.875rem; }
+        .prop-item strong { font-weight: 600; }
+
+        /* Placeholders */
+        .placeholder-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px dashed var(--glass-border);
+            border-radius: 1rem;
+            padding: 4rem 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            min-height: 400px;
+        }
+
+        .placeholder-icon {
+            font-size: 3.5rem;
+            padding: 1.5rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 50%;
+            color: rgba(255,255,255,0.2);
+        }
+
+        .placeholder-text {
+            font-size: 1.25rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }
+
+        /* File Explorer */
+        .file-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .file-table th, .file-table td { padding: 1rem; border-bottom: 1px solid var(--glass-border); }
+        .file-table th { color: var(--text-muted); font-weight: 500; text-transform: uppercase; font-size: 0.75rem; }
+        .file-table tr { transition: background 0.2s; }
+        .file-table tbody tr { cursor: pointer; }
+        .file-table tbody tr:hover { background: rgba(255,255,255,0.05); }
+        .file-icon { width: 30px; text-align: center; }
+        .file-icon.folder { color: #facc15; }
+        .file-icon.file { color: #94a3b8; }
+        .breadcrumb { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; color: var(--text-muted); align-items: center; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--glass-border); }
+        .breadcrumb span { cursor: pointer; transition: color 0.2s; }
+        .breadcrumb span:hover { color: var(--primary); }
+        .breadcrumb i { font-size: 0.75rem; margin: 0 0.5rem; color: var(--glass-border); }
+
+        /* Modal */
+        .modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal.active { display: flex; animation: fadeIn 0.3s; }
+        .modal-content { background: var(--bg-color); border: 1px solid var(--glass-border); border-radius: 1rem; width: 90%; max-width: 1000px; height: 85vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
+        .modal-header { padding: 1.5rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 1.125rem; }
+        .modal-close { cursor: pointer; color: var(--text-muted); font-size: 1.5rem; }
+        .modal-close:hover { color: var(--danger); }
+        .modal-body { flex: 1; padding: 1.5rem; overflow: hidden; display: flex; flex-direction: column; }
+        #modalTextarea { flex: 1; width: 100%; border: none; background: #0a0f1a; color: #e2e8f0; border-radius: 0.5rem; padding: 1.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; resize: none; outline: none; box-shadow: inset 0 2px 10px rgba(0,0,0,0.5); }
+        .modal-footer { padding: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; justify-content: flex-end; gap: 1rem; }
+
+        /* Settings Form */
+        .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+        .setting-item { display: flex; flex-direction: column; gap: 0.5rem; }
+        .setting-item label { color: var(--text-muted); font-size: 0.875rem; font-weight: 500; font-family: 'JetBrains Mono', monospace; word-break: break-all; }
+        .setting-item input { background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white; padding: 0.75rem 1rem; border-radius: 0.5rem; outline: none; transition: border-color 0.3s; }
+        .setting-item input:focus { border-color: var(--primary); }
+
+        /* Generic scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-cube"></i> Buny Panel
+        </div>
+        <div class="server-status-badge" id="statusBadge">
+            <div class="status-dot"></div>
+            <span id="statusText">Sunucu Kapalı</span>
+        </div>
+    </header>
+
+    <!-- Tabs Navigation -->
+    <div class="tabs-container">
+        <div class="tab-item active" onclick="switchTab('tab-console', this)">
+            <i class="fa-solid fa-terminal"></i> Console
+        </div>
+        <div class="tab-item" onclick="switchTab('tab-files', this)">
+            <i class="fa-solid fa-folder"></i> Files
+        </div>
+        <div class="tab-item" onclick="switchTab('tab-players', this)">
+            <i class="fa-solid fa-users"></i> Players
+        </div>
+        <div class="tab-item" onclick="switchTab('tab-settings', this)">
+            <i class="fa-solid fa-gear"></i> Settings
+        </div>
+        <div class="tab-item" onclick="switchTab('tab-analysis', this)">
+            <i class="fa-solid fa-chart-line"></i> Gelişmiş Veri Analizi
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <div class="container">
+        
+        <!-- ======================= -->
+        <!-- TAB: CONSOLE            -->
+        <!-- ======================= -->
+        <div id="tab-console" class="tab-pane active">
+            <div class="dashboard-grid">
+                <div class="main-content">
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card" style="color: var(--primary);">
+                            <div class="stat-title"><i class="fa-solid fa-users"></i> Aktif Oyuncular</div>
+                            <div class="stat-value"><span id="valPlayers">0</span><span class="stat-unit">/ 100</span></div>
+                        </div>
+                        <div class="stat-card" style="color: var(--success);">
+                            <div class="stat-title"><i class="fa-solid fa-gauge-high"></i> TPS (Performans)</div>
+                            <div class="stat-value"><span id="valTps">20.0</span><span class="stat-unit"></span></div>
+                        </div>
+                        <div class="stat-card" style="color: #a855f7;">
+                            <div class="stat-title"><i class="fa-solid fa-memory"></i> RAM Kullanımı</div>
+                            <div class="stat-value"><span id="valRam">0</span><span class="stat-unit">MB</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Console -->
+                    <div class="console-container">
+                        <div class="console-header">
+                            <i class="fa-solid fa-terminal"></i> Canlı Sunucu Girdisi
+                            <div class="console-actions">
+                                <button class="console-btn" onclick="clearConsole()" title="Konsolu Temizle"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                        <div class="console-output" id="consoleOutput">
+                            <div class="log-info">Panel bağlantısı kuruluyor... v1.0.0</div>
+                        </div>
+                        <div class="console-input-area">
+                            <input type="text" id="cmdInput" placeholder="Sunucuya komut gönder... (Örn: say Merhaba!)" autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar">
+                    <div class="control-card">
+                        <h3><i class="fa-solid fa-sliders"></i> Hızlı Kontroller</h3>
+                        <button class="btn btn-start" id="btnStart" onclick="startServer()">
+                            <i class="fa-solid fa-play"></i> Sunucuyu Başlat
+                        </button>
+                        <button class="btn btn-stop" id="btnStop" onclick="stopServer()" style="display: none;">
+                            <i class="fa-solid fa-power-off"></i> Sunucuyu Durdur
+                        </button>
+                        <button class="btn btn-restart" id="btnRestart" onclick="restartServer()" style="display: none;">
+                            <i class="fa-solid fa-rotate-right"></i> Yeniden Başlat
+                        </button>
+                    </div>
+
+                    <div class="control-card">
+                        <h3><i class="fa-solid fa-server"></i> Sunucu Bilgisi</h3>
+                        <div class="prop-item">
+                            <span>Durum</span>
+                            <strong id="infoStatus" class="log-error">Kapalı</strong>
+                        </div>
+                        <div class="prop-item">
+                            <span>Max RAM Tahsisi</span>
+                            <strong><span id="infoMaxRam">0</span> MB</strong>
+                        </div>
+                        <div class="prop-item">
+                            <span>Sunucu IP</span>
+                            <strong id="infoServerIP">Belirsiz</strong>
+                        </div>
+                    </div>
+
+                    <div class="control-card">
+                        <h3><i class="fa-solid fa-globe"></i> Tünel Yönetimi (Playit)</h3>
+                        <div id="playitClaimContainer" style="display: none; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+                            <a id="btnPlayitClaim" href="#" target="_blank" class="btn" style="background: var(--warning); color: #000; font-weight: 700;">
+                                <i class="fa-solid fa-link"></i> Ayarlamak İçin Tıklayın
+                            </a>
+                        </div>
+                        <button class="btn btn-start" id="btnPlayitStart" onclick="startPlayit()">
+                            <i class="fa-solid fa-play"></i> Playit Tünelini Başlat
+                        </button>
+                        <button class="btn btn-stop" id="btnPlayitStop" onclick="stopPlayit()" style="display: none;">
+                            <i class="fa-solid fa-power-off"></i> Tüneli Durdur
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- TAB: FILES              -->
+        <!-- ======================= -->
+        <div id="tab-files" class="tab-pane">
+            <div class="control-card" style="min-height: 600px;">
+                <div class="breadcrumb" id="breadcrumbArea">
+                    <i class="fa-solid fa-house" style="color: var(--primary);"></i><span onclick="loadFiles('')">Ana Dizin</span>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="file-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px; text-align: center;">Tİp</th>
+                                <th>Dosya/Klasör Adı</th>
+                                <th>Boyut</th>
+                                <th>Son Değiştirme</th>
+                                <th style="width: 50px; text-align: center;">İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fileTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- TAB: PLAYERS            -->
+        <!-- ======================= -->
+        <div id="tab-players" class="tab-pane">
+            <div class="placeholder-card">
+                <div class="placeholder-icon"><i class="fa-solid fa-users-viewfinder"></i></div>
+                <div class="placeholder-text">Çevrimiçi Oyuncu Listesi Henüz Bağlanmadı</div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- TAB: SETTINGS           -->
+        <!-- ======================= -->
+        <div id="tab-settings" class="tab-pane">
+            
+            <!-- Server Properties -->
+            <div class="control-card" style="margin-bottom: 2rem;">
+                <h3><i class="fa-solid fa-sliders"></i> Sunucu Ayarları (server.properties)</h3>
+                <div class="settings-grid" id="propsContainer">
+                    <!-- Populated by JS -->
+                    <div style="color: var(--danger); grid-column: 1 / -1;">Ayarlar yükleniyor veya `server.properties` bulunamadı.</div>
+                </div>
+                <button class="btn" onclick="saveProperties()" style="background: var(--success); margin-top: 2rem; max-width: 300px;">
+                    <i class="fa-solid fa-check-double"></i> Sunucu Ayarlarını Kaydet
+                </button>
+            </div>
+
+            <!-- Path Settings -->
+            <div class="control-card" style="max-width: 800px;">
+                <h3><i class="fa-solid fa-folder-open"></i> Sistem Yolu Ayarı (Panel Config)</h3>
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 500;">Sunucu Klasörü (Dizin C:\..)</label>
+                        <input type="text" id="cfgServerPath" placeholder="C:\Users\...\Sunucu" style="width: 100%; padding: 0.75rem 1rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white; border-radius: 0.5rem; font-family: 'JetBrains Mono', monospace; outline: none; transition: border-color 0.3s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--glass-border)'">
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem; font-weight: 500;">Başlatma Dosyası Adı</label>
+                        <input type="text" id="cfgStartFile" placeholder="start.bat veya server.jar" style="width: 100%; padding: 0.75rem 1rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: white; border-radius: 0.5rem; font-family: 'JetBrains Mono', monospace; outline: none; transition: border-color 0.3s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--glass-border)'">
+                    </div>
+                    
+                    <button class="btn" onclick="saveConfigSettings(event)" style="background: var(--primary); margin-top: 1rem; max-width: 300px;">
+                        <i class="fa-solid fa-floppy-disk"></i> Yolları Kaydet
+                    </button>
+                </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- ======================= -->
+        <!-- TAB: ANALYSIS           -->
+        <!-- ======================= -->
+        <div id="tab-analysis" class="tab-pane">
+            <div class="dashboard-grid">
+                <!-- Tablo 1: Aktif Oyuncu ve Ağ Durumu -->
+                <div class="control-card">
+                    <h3><i class="fa-solid fa-network-wired"></i> Aktif Oyuncu ve Ağ Durumu</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="file-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--glass-border); color: var(--text-muted);">
+                                    <th style="padding: 1rem;">Oyuncu Adı</th>
+                                    <th style="padding: 1rem;">PİNG (ms)</th>
+                                    <th style="padding: 1rem;">Durum Analizi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packetAnalysisBody">
+                                <tr><td colspan="3" style="text-align: center; padding: 1rem; color: var(--text-muted);">Tablo verisi bekleniyor...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tablo 2: Ağır Chunk Analizi -->
+                <div class="control-card">
+                    <h3><i class="fa-solid fa-cubes"></i> Ağır Chunk Analizi</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="file-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--glass-border); color: var(--text-muted);">
+                                    <th style="padding: 1rem;">Chunk X-Z</th>
+                                    <th style="padding: 1rem;">Entity Sayısı</th>
+                                    <th style="padding: 1rem;">Sebep/Notlar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="chunkAnalysisBody">
+                                <tr><td colspan="3" style="text-align: center; padding: 1rem; color: var(--text-muted);">Tablo verisi bekleniyor...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Edit File Modal -->
+    <div class="modal" id="fileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modalFileTitle">Dosya Düzenle</span>
+                <i class="fa-solid fa-xmark modal-close" onclick="closeFileModal()"></i>
+            </div>
+            <div class="modal-body">
+                <textarea id="modalTextarea"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeFileModal()" style="background: transparent; border: 1px solid var(--glass-border); max-width: 150px; margin: 0;">İptal</button>
+                <button class="btn" onclick="saveFileContent(event)" style="background: var(--primary); max-width: 150px; margin: 0;"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilePath = '';
+        let currentOpenedFile = '';
+        const socket = io();
+
+        // ------------------------------------
+        // Tab Switch Logic
+        // ------------------------------------
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+
+            element.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+
+            if (tabId === 'tab-files') {
+                loadFiles(currentFilePath);
+            } else if (tabId === 'tab-settings') {
+                loadProperties();
+            }
+        }
+
+        // ------------------------------------
+        // Files Explorer
+        // ------------------------------------
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+
+        async function loadFiles(dirPath) {
+            currentFilePath = dirPath;
+            try {
+                const res = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`);
+                const files = await res.json();
+                
+                // Render Breadcrumb
+                const bcArea = document.getElementById('breadcrumbArea');
+                let bcHtml = `<i class="fa-solid fa-house" style="color: var(--primary);"></i><span onclick="loadFiles('')">Root</span>`;
+                if (dirPath) {
+                    const parts = dirPath.split(/[/\\]/).filter(Boolean);
+                    let cumPath = "";
+                    parts.forEach(p => {
+                        cumPath += p + "/";
+                        bcHtml += ` <i class="fa-solid fa-chevron-right"></i> <span onclick="loadFiles('${cumPath.slice(0,-1)}')">${p}</span>`;
+                    });
+                }
+                bcArea.innerHTML = bcHtml;
+
+                // Render Table
+                const tBody = document.getElementById('fileTableBody');
+                if (files.error) {
+                    tBody.innerHTML = `<tr><td colspan="5" style="color:var(--danger); text-align:center;">${files.error}</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                // Up folder
+                if (dirPath) {
+                    const upFolder = dirPath.split(/[/\\]/).filter(Boolean);
+                    upFolder.pop();
+                    const upPath = upFolder.join('/');
+                    html += `<tr onclick="loadFiles('${upPath}')">
+                        <td class="file-icon folder"><i class="fa-solid fa-folder-open"></i></td>
+                        <td colspan="4"><strong>..</strong></td>
+                    </tr>`;
+                }
+
+                files.forEach(f => {
+                    const icon = f.isDirectory ? '<i class="fa-solid fa-folder"></i>' : '<i class="fa-solid fa-file-lines"></i>';
+                    const iconClass = f.isDirectory ? 'folder' : 'file';
+                    const sizeTxt = f.isDirectory ? '-' : formatBytes(f.size);
+                    const dateTxt = new Date(f.modifiedDate).toLocaleString('tr-TR');
+                    
+                    const nextPath = dirPath ? `${dirPath}/${f.name}` : f.name;
+
+                    html += `<tr onclick="handleFileClick(event, '${f.name}', ${f.isDirectory}, '${nextPath}')">
+                        <td class="file-icon ${iconClass}">${icon}</td>
+                        <td style="font-weight: 500;">${f.name}</td>
+                        <td style="color: var(--text-muted);">${sizeTxt}</td>
+                        <td style="color: var(--text-muted);">${dateTxt}</td>
+                        <td style="text-align: center;">
+                            <button onclick="deleteFile(event, '${nextPath}')" style="background:none; border:none; color:var(--danger); cursor:pointer;"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                tBody.innerHTML = html;
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function handleFileClick(e, name, isDir, targetPath) {
+            if (isDir) {
+                loadFiles(targetPath);
+            } else {
+                // Check if text editable
+                const ext = name.split('.').pop().toLowerCase();
+                const textExts = ['yml', 'yaml', 'json', 'txt', 'properties', 'js', 'html', 'css', 'bat', 'sh'];
+                if (textExts.includes(ext) || !name.includes('.')) {
+                    openFileModal(targetPath, name);
+                } else {
+                    alert('Bu dosya türü tarayıcı üzerinden düzenlenemez.');
+                }
+            }
+        }
+
+        async function deleteFile(e, targetPath) {
+            e.stopPropagation();
+            if (!confirm(`Silmek istediğinize emin misiniz: ${targetPath}?`)) return;
+            try {
+                const res = await fetch(`/api/file/delete?path=${encodeURIComponent(targetPath)}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    loadFiles(currentFilePath); // Yenile
+                } else {
+                    alert('Hata: ' + data.error);
+                }
+            } catch(err) {
+                alert('Silme işlemi başarısız.');
+            }
+        }
+
+        // ------------------------------------
+        // Drag and Drop Upload
+        // ------------------------------------
+        const dropOverlay = document.createElement('div');
+        dropOverlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 9999; flex-direction: column; color: var(--primary);";
+        dropOverlay.innerHTML = `<i class="fa-solid fa-cloud-arrow-up" style="font-size: 6rem; margin-bottom: 2rem;"></i><span style="font-weight: 700; font-size: 2rem; font-family: 'Inter', sans-serif;">Dosyaları Buraya Bırakın</span><p style="font-size:1.1rem; color:var(--text-main); margin-top: 1rem;">O an bulunduğunuz klasöre anında yüklenecektir</p>`;
+        document.body.appendChild(dropOverlay);
+
+        let dragCounter = 0;
+        document.body.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            if (document.getElementById('tab-files').classList.contains('active')) {
+                dropOverlay.style.display = 'flex';
+            }
+        });
+        document.body.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                dropOverlay.style.display = 'none';
+            }
+        });
+        document.body.addEventListener('dragover', (e) => { e.preventDefault(); });
+        document.body.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            dropOverlay.style.display = 'none';
+
+            if (!document.getElementById('tab-files').classList.contains('active')) return;
+
+            const files = e.dataTransfer.files;
+            if (files.length === 0) return;
+
+            let uploaded = 0;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('path', currentFilePath);
+
+                try {
+                    const res = await fetch('/api/file/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    if (data.success) uploaded++;
+                } catch(e) {
+                    console.error('Yükleme hatası:', e);
+                }
+            }
+            if (uploaded > 0) loadFiles(currentFilePath);
+        });
+
+        // ------------------------------------
+        // File Edit Modal
+        // ------------------------------------
+        async function openFileModal(filePath, fileName) {
+            currentOpenedFile = filePath;
+            document.getElementById('modalFileTitle').innerText = fileName + ' Düzenleniyor';
+            document.getElementById('modalTextarea').value = 'Yükleniyor...';
+            document.getElementById('fileModal').classList.add('active');
+
+            try {
+                const res = await fetch(`/api/file/read?path=${encodeURIComponent(filePath)}`);
+                const text = await res.text();
+                document.getElementById('modalTextarea').value = text;
+            } catch (e) {
+                document.getElementById('modalTextarea').value = 'Hata: ' + e;
+            }
+        }
+
+        function closeFileModal() {
+            document.getElementById('fileModal').classList.remove('active');
+        }
+
+        async function saveFileContent(event) {
+            const btn = event.currentTarget;
+            const content = document.getElementById('modalTextarea').value;
+            try {
+                const res = await fetch('/api/file/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: currentOpenedFile, content: content })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Kaydedildi';
+                    btn.style.background = 'var(--success)';
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Kaydet';
+                        btn.style.background = 'var(--primary)';
+                        closeFileModal();
+                    }, 1000);
+                } else {
+                    alert("Hata: " + data.error);
+                }
+            } catch (e) {
+                alert("İstek hatası.");
+            }
+        }
+
+        // ------------------------------------
+        // Settings / Properties Logic
+        // ------------------------------------
+        async function loadProperties() {
+            try {
+                const res = await fetch('/api/get-properties');
+                const data = await res.json();
+                const c = document.getElementById('propsContainer');
+                if (data.error) {
+                    c.innerHTML = `<div style="color: var(--danger); grid-column: 1 / -1;">[+] ${data.error}</div>`;
+                    return;
+                }
+                
+                let html = '';
+                Object.entries(data.settings).forEach(([key, val]) => {
+                    html += `
+                        <div class="setting-item">
+                            <label>${key}</label>
+                            <input type="text" value="${val.replace(/"/g, '&quot;')}" data-prop="${key}">
+                        </div>`;
+                });
+                c.innerHTML = html;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function saveProperties() {
+            const inputs = document.querySelectorAll('#propsContainer input[data-prop]');
+            const newSettings = {};
+            inputs.forEach(inp => {
+                newSettings[inp.getAttribute('data-prop')] = inp.value;
+            });
+
+            try {
+                const res = await fetch('/api/save-properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ settings: newSettings })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert('server.properties başarıyla kaydedildi!');
+                }
+            } catch (e) {
+                alert('Kaydedilirken hata oluştu.');
+            }
+        }
+
+        // Config Path Saves
+        function saveConfigSettings(event) {
+            const p = document.getElementById('cfgServerPath').value;
+            const f = document.getElementById('cfgStartFile').value;
+            socket.emit('update-settings', { serverPath: p, startFile: f });
+            
+            const btn = event.currentTarget;
+            const originHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Kaydedildi!';
+            btn.style.background = 'var(--success)';
+            setTimeout(() => {
+                btn.innerHTML = originHtml;
+                btn.style.background = 'var(--primary)';
+            }, 2000);
+        }
+
+        // ------------------------------------
+        // Base Socket / Console Logic
+        // ------------------------------------
+        const consoleElOutput = document.getElementById('consoleOutput');
+        const cmdInputOutput = document.getElementById('cmdInput');
+        
+        function formatLog(text) {
+            let colorized = text
+                .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                .replace(/(\[INFO\])/i, '<span class="log-info">$1</span>')
+                .replace(/(\[WARN(ING)?\])/i, '<span class="log-warn">$1</span>')
+                .replace(/(\[ERROR\])/i, '<span class="log-error">$1</span>')
+                .replace(/(\[PANEL\])/i, '<span class="log-panel">$1</span>');
+            return `<div class="log-line">${colorized}</div>`;
+        }
+
+        function appendLog(html) {
+            const isScrolledToBottom = consoleElOutput.scrollHeight - consoleElOutput.clientHeight <= consoleElOutput.scrollTop + 100;
+            consoleElOutput.insertAdjacentHTML('beforeend', html);
+            if (isScrolledToBottom) {
+                consoleElOutput.scrollTop = consoleElOutput.scrollHeight;
+            }
+        }
+
+        function clearConsole() {
+            consoleElOutput.innerHTML = '<div class="log-info">Konsol temizlendi.</div>';
+        }
+
+        socket.on('connect', () => {
+            appendLog(formatLog('[PANEL] Web panele başarıyla bağlanıldı.'));
+            socket.emit('get-settings');
+        });
+
+        socket.on('current-settings', (settings) => {
+            document.getElementById('cfgServerPath').value = settings.serverPath || '';
+            document.getElementById('cfgStartFile').value = settings.startFile || '';
+        });
+
+        socket.on('console-history', (historyMsgs) => {
+            historyMsgs.forEach(msg => appendLog(formatLog(msg)));
+        });
+
+        socket.on('console-output', (msg) => {
+            appendLog(formatLog(msg));
+        });
+
+        socket.on('server-status', (data) => {            
+            const badge = document.getElementById('statusBadge');
+            const statusText = document.getElementById('statusText');
+            const infoStatus = document.getElementById('infoStatus');
+            const btnStart = document.getElementById('btnStart');
+            const btnStop = document.getElementById('btnStop');
+            const btnRestart = document.getElementById('btnRestart');
+
+            if (data.running) {
+                badge.classList.add('online');
+                statusText.innerText = 'Sunucu Açık';
+                infoStatus.innerText = 'Çalışıyor';
+                infoStatus.className = 'log-success';
+                
+                btnStart.style.display = 'none';
+                btnStop.style.display = 'flex';
+                btnRestart.style.display = 'flex';
+            } else {
+                badge.classList.remove('online');
+                statusText.innerText = 'Sunucu Kapalı';
+                infoStatus.innerText = 'Durdu';
+                infoStatus.className = 'log-error';
+                
+                btnStart.style.display = 'flex';
+                btnStop.style.display = 'none';
+                btnRestart.style.display = 'none';
+                
+                document.getElementById('valTps').innerText = '0.0';
+                document.getElementById('valPlayers').innerText = '0';
+                document.getElementById('valRam').innerText = '0';
+            }
+        });
+
+        socket.on('statsUpdate', (stats) => {
+            document.getElementById('valTps').innerText = stats.tps || '0.0';
+            document.getElementById('valPlayers').innerText = stats.players || '0';
+            document.getElementById('valRam').innerText = stats.ram || '0';
+            document.getElementById('infoMaxRam').innerText = stats.maxRam || '0';
+            
+            // Paket Analiz Tablosu Güncelle
+            if (stats.packetAnalysis && stats.packetAnalysis.length > 0) {
+                let phtml = '';
+                stats.packetAnalysis.forEach(p => {
+                    const statusColor = p.status.includes('Gecikmeli') ? 'var(--warning)' : 'var(--success)';
+                    phtml += `<tr style="border-bottom: 1px solid var(--glass-border);">
+                        <td style="padding: 1rem; font-weight: 500;">${p.player}</td>
+                        <td style="padding: 1rem; color: var(--text-muted);">${p.ping}</td>
+                        <td style="padding: 1rem; color: ${statusColor}; font-weight: 600;">${p.status}</td>
+                    </tr>`;
+                });
+                document.getElementById('packetAnalysisBody').innerHTML = phtml;
+            } else {
+                document.getElementById('packetAnalysisBody').innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-style: italic;"><i class="fa-solid fa-user-slash"></i> Şu an sunucuda oyuncu bulunmuyor</td></tr>`;
+            }
+
+            // Chunk Analiz Tablosu Güncelle
+            if (stats.chunkAnalysis && stats.chunkAnalysis.length > 0) {
+                let chtml = '';
+                stats.chunkAnalysis.forEach(c => {
+                    chtml += `<tr style="border-bottom: 1px solid var(--glass-border);">
+                        <td style="padding: 1rem; font-weight: 500; font-family: monospace;">[${c.x}, ${c.z}]</td>
+                        <td style="padding: 1rem; color: var(--warning); font-weight: 600;">${c.entities}</td>
+                        <td style="padding: 1rem; color: var(--text-muted);">${c.reason}</td>
+                    </tr>`;
+                });
+                document.getElementById('chunkAnalysisBody').innerHTML = chtml;
+            } else {
+                document.getElementById('chunkAnalysisBody').innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-style: italic;">Ağır chunk bulunamadı.</td></tr>`;
+            }
+        });
+
+        socket.on('playitStatus', (data) => {
+            if (data.running) {
+                document.getElementById('btnPlayitStart').style.display = 'none';
+                document.getElementById('btnPlayitStop').style.display = 'flex';
+            } else {
+                document.getElementById('btnPlayitStart').style.display = 'flex';
+                document.getElementById('btnPlayitStop').style.display = 'none';
+                document.getElementById('playitClaimContainer').style.display = 'none';
+                // Sunucu IP kısmını hemen kapatmayalım, belki kopyalamak istiyordur.
+            }
+        });
+
+        socket.on('playitClaimLink', (link) => {
+            const btn = document.getElementById('btnPlayitClaim');
+            btn.href = link;
+            document.getElementById('playitClaimContainer').style.display = 'flex';
+        });
+
+        socket.on('playitIP', (ip) => {
+            document.getElementById('infoServerIP').innerText = ip;
+        });
+
+        function startPlayit() {
+            fetch('/api/playit/start', { method: 'POST' })
+                .then(r => r.json())
+                .then(d => { if(d.error) alert(d.error); })
+                .catch(e => console.error(e));
+        }
+
+        function stopPlayit() {
+            fetch('/api/playit/stop', { method: 'POST' });
+        }
+
+        function startServer() { socket.emit('start-server'); }
+        function stopServer() {
+            if(confirm("Sunucuyu durdurmak istediğinize emin misiniz?")) socket.emit('stop-server');
+        }
+        function restartServer() {
+            if(confirm("Sunucuyu yeniden başlatmak istediğine emin misiniz? Sunucu kapanıp tekrar açılacaktır.")) {
+                socket.emit('stop-server');
+                setTimeout(() => socket.emit('start-server'), 9000);
+            }
+        }
+    </script>
+</body>
+</html>

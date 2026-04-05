@@ -1,0 +1,6 @@
+name: PanelAgent
+version: 1.0.0
+main: com.panel.agent.Main
+api-version: 1.13
+authors: ["Bunyamin"]
+description: A dashboard agent that sends live stats back to the Node.js panel.
