@@ -1,30 +1,57 @@
 # 📦 Buny Panel v2.0
 
-Minecraft sunucunuzu web arayüzü üzerinden tam yetkiyle yönetmenizi sağlayan Node.js tabanlı, modern ve fütüristik bir kontrol paneli.
+![Version](https://img.shields.io/badge/version-2.0-blue.svg)
+![Node.js](https://img.shields.io/badge/Node.js-LTS-green.svg)
+![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-## ✨ Özellikler
+Minecraft sunucunuzu web arayüzü üzerinden tam yetkiyle yönetmenizi sağlayan Node.js tabanlı, modern, siyah-beyaz (monochrome) ve fütüristik bir kontrol paneli. Sunucunuzun arka planında çalışan sistemleri tek bir ekranda birleştirerek hem dosya yönetimini hem de performans takibini kolaylaştırır.
 
-- **Gerçek Zamanlı Konsol:** Sunucu loglarını canlı izleyin ve anında komut gönderin.
-- **Global File Manager:** Mutlak dosya yolu destekli, sürükle-bırak özellikli tam kapsamlı sunucu dosya yöneticisi.
-- **Gelişmiş Veri Analizi:** Spigot Java Agent destekli gerçek zamanlı paket, ping ve ağır chunk (lag) analizi.
-- **Tünel Entegrasyonu:** Otomatik Playit.gg desteği.
+---
 
-## 🔐 Giriş Bilgileri
+## 📸 Ekran Görüntüleri
+*(Not: Bu kısımlara proje fotoğraflarınızı sürükleyip bırakarak yükleyebilirsiniz)*
 
-Panelin varsayılan yönetici hesap bilgileri aşağıdadır. Kurulum bittikten sonra bu bilgilerle giriş yapabilirsiniz:
-- **Kullanıcı Adı:** `admin`
-- **Şifre:** `123456`
-*(Not: Güvenliğiniz için kurulumdan sonra bu bilgileri kod içerisinden veya veritabanından değiştirmeniz tavsiye edilir.)*
+<details>
+  <summary>Görselleri Göster / Gizle</summary>
+  
+  - **Ana Dashboard / Konsol:** `[Buraya ekran görüntüsü gelecek]`
+  - **Dosya Yöneticisi (File Manager):** `[Buraya ekran görüntüsü gelecek]`
+  - **Gelişmiş Analiz:** `[Buraya ekran görüntüsü gelecek]`
+</details>
+
+---
+
+## ✨ Detaylı Özellikler
+
+*   💻 **Gerçek Zamanlı Konsol:** Minecraft sunucunuzun loglarını tarayıcı üzerinden saniyesi saniyesine izleyin. Anında yetkili komutları gönderin.
+*   📁 **Global File Manager (Tam Erişim):** 
+    *   Sunucunun mutlak yoluna (Absolute Path) doğrudan bağlanır.
+    *   **Sürükle & Bırak:** Eklenti (`.jar`) yüklemek için dosyayı ekrana fırlatmanız yeterli.
+    *   **Dahili Kod Editörü:** `server.properties`, `spigot.yml` veya `ops.json` dosyalarını indirmeden panel üzerinden tıklayarak düzenleyin ve kaydedin.
+*   📊 **Spigot Java Agent (Gelişmiş Veri Analizi):** 
+    *   Backend ile senkronize çalışan özel Java eklentisi sayesinde oyuncuların **anlık ping** değerlerini takip edin.
+    *   Haritada yoğunluk ve lag yaratan **ağır chunk'ları ve entity sayılarını** tespit edin.
+    *   Özelleştirilebilir "Max Ping" ve "Max Paket" limitleriyle şüpheli durumları anında yakalayın.
+*   🌐 **Otomatik Playit.gg ve Ngrok Entegrasyonu:** Modemden port açma (Port Forwarding) derdine son. Tek komutla sunucunuzu dış dünyaya açın.
+*   🎨 **Modern UI/UX:** Tailwind CSS ile kodlanmış, göz yormayan karanlık tema ve pürüzsüz animasyon geçişleri.
+
+---
 
 ## 🛠️ Gereksinimler
 
-- Node.js (LTS önerilir)
-- Java 17 veya üzeri (Minecraft sunucusu ve Agent eklentisi için)
+Sistemin sorunsuz çalışması için ortamınızda şunların kurulu olması gerekir:
+*   [Node.js](https://nodejs.org/) (LTS sürümü tavsiye edilir)
+*   **Java 17 veya üzeri** (Minecraft sunucusu ve Agent eklentisi için)
+*   **Spigot / Paper** tabanlı bir Minecraft Sunucusu
 
-## 🚀 Kurulum
+---
 
-1. **Repoyu indirin ve bağımlılıkları yükleyin:**
-   ```bash
-   git clone <repo-url>
-   cd bunypanel
-   npm install
+## 🚀 Kurulum Adımları
+
+### 1. Dosyaları İndirin
+Projeyi bilgisayarınıza klonlayın ve bağımlılıkları kurun:
+```bash
+git clone [https://github.com/bunyamin498/bunypanel.git](https://github.com/bunyamin498/bunypanel.git)
+cd bunypanel
+npm install
