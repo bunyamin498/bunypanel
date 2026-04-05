@@ -1,45 +1,30 @@
-# Buny Panel v2.0
+# 📦 Buny Panel v2.0
 
-Minecraft sunucunuzu web arayüzü üzerinden yönetmenizi sağlayan Node.js tabanlı bir panel.
+Minecraft sunucunuzu web arayüzü üzerinden tam yetkiyle yönetmenizi sağlayan Node.js tabanlı, modern ve fütüristik bir kontrol paneli.
 
-## Özellikler
+## ✨ Özellikler
 
-- Gerçek Zamanlı Konsol
-- Mutlak Dosya Yolu Destekli Sürükle-Bırak Global File Manager
-- Spigot Java Agent destekli Gelişmiş Paket & Ping Analizi (Gerçek Zamanlı)
-- Otomatik Playit.gg Tünel Entegrasyonu
+- **Gerçek Zamanlı Konsol:** Sunucu loglarını canlı izleyin ve anında komut gönderin.
+- **Global File Manager:** Mutlak dosya yolu destekli, sürükle-bırak özellikli tam kapsamlı sunucu dosya yöneticisi.
+- **Gelişmiş Veri Analizi:** Spigot Java Agent destekli gerçek zamanlı paket, ping ve ağır chunk (lag) analizi.
+- **Tünel Entegrasyonu:** Otomatik Playit.gg desteği.
 
-## Gereksinimler
+## 🔐 Giriş Bilgileri
+
+Panelin varsayılan yönetici hesap bilgileri aşağıdadır. Kurulum bittikten sonra bu bilgilerle giriş yapabilirsiniz:
+- **Kullanıcı Adı:** `admin`
+- **Şifre:** `123456`
+*(Not: Güvenliğiniz için kurulumdan sonra bu bilgileri kod içerisinden veya veritabanından değiştirmeniz tavsiye edilir.)*
+
+## 🛠️ Gereksinimler
 
 - Node.js (LTS önerilir)
-- Java (sunucu ve Agent için)
+- Java 17 veya üzeri (Minecraft sunucusu ve Agent eklentisi için)
 
-## Kurulum
+## 🚀 Kurulum
 
-1. Repoyu indirin ve bağımlılıkları yükleyin:
-
+1. **Repoyu indirin ve bağımlılıkları yükleyin:**
    ```bash
    git clone <repo-url>
+   cd bunypanel
    npm install
-   ```
-
-2. Ortam değişkenlerini oluşturun:
-
-   - `.env.example` dosyasını kopyalayıp proje kök dizininde `.env` olarak oluşturun.
-   - `SERVER_PATH` değerini kendi Minecraft sunucu klasörünüze göre güncelleyin.
-
-3. Java Agent’ı derleyin ve `plugins` klasörüne atın:
-
-   - `AgentPlugin` klasörünü derleyin (Maven/IDE ile).
-   - Oluşan `.jar` dosyasını sunucunuzun `plugins` klasörüne kopyalayın.
-
-4. Paneli başlatın:
-
-   ```bash
-   node server.js
-   ```
-
-## Ortam Değişkenleri
-
-- `PORT`: Web panelin çalışacağı port (varsayılan: `3000`)
-- `SERVER_PATH`: Minecraft sunucusunun bulunduğu klasörün mutlak yolu
