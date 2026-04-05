@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -15,13 +13,8 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 // --- Kimlik Doğrulama ---
-const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER;
-const BASIC_AUTH_PASS = process.env.BASIC_AUTH_PASS;
-if (!BASIC_AUTH_USER || !BASIC_AUTH_PASS) {
-    throw new Error('BASIC_AUTH_USER ve BASIC_AUTH_PASS ortam değişkenleri tanımlı olmalı.');
-}
 app.use(basicAuth({
-    users: { [BASIC_AUTH_USER]: BASIC_AUTH_PASS },
+    users: { 'admin': '123456' },
     challenge: true,
     unauthorizedResponse: 'Yetkisiz erişim! Lütfen giriş yapın.'
 }));
@@ -32,34 +25,39 @@ app.use(express.static('public'));
 let minecraftProcess = null;
 let consoleHistory = [];
 
-const PORT = process.env.PORT || 3000;
-const SERVER_PATH = process.env.SERVER_PATH;
-const CONFIG_FILE = path.join(__dirname, 'panel-config.json');
-
-// Varsayılan ayarlar
-let SERVER_ROOT = SERVER_PATH || process.cwd();
-let currentServerPath = SERVER_ROOT; 
+const PORT = 3000;
+let SERVER_PATH = '';
+let currentServerPath = SERVER_PATH; 
 let customStartPath = ''; 
-
-// Ayarları dosyadan oku
-if (fs.existsSync(CONFIG_FILE) && !SERVER_PATH) {
-    try {
-        const conf = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-        if (conf.serverPath) currentServerPath = conf.serverPath;
-        if (conf.startFile) customStartPath = conf.startFile;
-    } catch(e) { console.error('Konfig okunamadı'); }
-}
-
-function saveConfig() {
-    try {
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify({ serverPath: currentServerPath, startFile: customStartPath }), 'utf8');
-    } catch(e) {}
-}
 
 function pushLog(msg) {
     consoleHistory.push(msg);
     if (consoleHistory.length > 500) consoleHistory.shift();
 }
+
+function requireServerPath(req, res, next) {
+    if (!SERVER_PATH || !fs.existsSync(SERVER_PATH)) {
+        return res.status(400).json({ error: 'Yol ayarlanmadı' });
+    }
+    try {
+        if (!fs.statSync(SERVER_PATH).isDirectory()) {
+            return res.status(400).json({ error: 'Yol ayarlanmadı' });
+        }
+    } catch (e) {
+        return res.status(400).json({ error: 'Yol ayarlanmadı' });
+    }
+    currentServerPath = SERVER_PATH;
+    next();
+}
+
+app.post('/api/set-path', (req, res) => {
+    const requestedPath = req?.body?.path ? String(req.body.path).trim() : '';
+    if (!requestedPath) return res.status(400).json({ success: false, error: 'path gerekli' });
+    SERVER_PATH = requestedPath;
+    currentServerPath = SERVER_PATH;
+    console.log(`[PANEL] SERVER_PATH set edildi: ${SERVER_PATH}`);
+    res.json({ success: true, SERVER_PATH });
+});
 
 // --- API Rotası: Plugin İstatisitk (POST) ---
 app.post('/api/server-stats', (req, res) => {
@@ -76,7 +74,7 @@ app.post('/api/server-stats', (req, res) => {
 });
 
 // --- API Rotası: Ayarları Oku ---
-app.get('/api/get-properties', (req, res) => {
+app.get('/api/get-properties', requireServerPath, (req, res) => {
     const filePath = path.join(currentServerPath, 'server.properties');
     if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'server.properties bulunamadı!' });
@@ -100,7 +98,7 @@ app.get('/api/get-properties', (req, res) => {
 });
 
 // --- API Rotası: Ayarları Kaydet ---
-app.post('/api/save-properties', (req, res) => {
+app.post('/api/save-properties', requireServerPath, (req, res) => {
     const filePath = path.join(currentServerPath, 'server.properties');
     const { settings } = req.body;
     try {
@@ -119,7 +117,7 @@ app.post('/api/save-properties', (req, res) => {
 });
 
 // --- API Rotası: Klasör İçeriğini Gör ---
-app.get('/api/files', (req, res) => {
+app.get('/api/files', requireServerPath, (req, res) => {
     const queryPath = req.query.path || '';
     if (queryPath.includes('..')) return res.status(403).json({ error: 'Geçersiz yol!' });
     
@@ -146,7 +144,7 @@ app.get('/api/files', (req, res) => {
 });
 
 // --- API Rotası: Dosya Oku ---
-app.get('/api/file/read', (req, res) => {
+app.get('/api/file/read', requireServerPath, (req, res) => {
     const queryPath = req.query.path || '';
     if (queryPath.includes('..')) return res.status(403).json({ error: 'Geçersiz yol!' });
     
@@ -162,7 +160,7 @@ app.get('/api/file/read', (req, res) => {
 });
 
 // --- API Rotası: Dosya Kaydet ---
-app.post('/api/file/save', (req, res) => {
+app.post('/api/file/save', requireServerPath, (req, res) => {
     const { path: queryPath, content } = req.body;
     if (!queryPath || queryPath.includes('..')) return res.status(403).json({ error: 'Geçersiz yol!' });
     
@@ -176,7 +174,7 @@ app.post('/api/file/save', (req, res) => {
 });
 
 // --- API Rotası: Dosya Sil ---
-app.delete('/api/file/delete', (req, res) => {
+app.delete('/api/file/delete', requireServerPath, (req, res) => {
     const queryPath = req.query.path || '';
     if (!queryPath || queryPath.includes('..')) return res.status(403).json({ error: 'Geçersiz yol!' });
     
@@ -213,7 +211,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-app.post('/api/file/upload', upload.single('file'), (req, res) => {
+app.post('/api/file/upload', requireServerPath, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'Dosya yüklenemedi.' });
     res.json({ success: true, filename: req.file.originalname });
 });
@@ -221,7 +219,7 @@ app.post('/api/file/upload', upload.single('file'), (req, res) => {
 // --- API Rotası: Playit.gg ---
 let playitProcess = null;
 
-app.post('/api/playit/start', (req, res) => {
+app.post('/api/playit/start', requireServerPath, (req, res) => {
     if (playitProcess) return res.json({ error: 'Playit zaten çalışıyor!' });
 
     let playitPath = path.join(currentServerPath, 'playit.exe');
@@ -292,7 +290,7 @@ app.get('/api/playit/status', (req, res) => {
 });
 
 app.get('/api/status', (req, res) => {
-    res.json({ running: minecraftProcess !== null, path: currentServerPath });
+    res.json({ running: minecraftProcess !== null, path: SERVER_PATH });
 });
 
 // --- Socket.io ---
@@ -302,6 +300,7 @@ io.on('connection', (socket) => {
 
     socket.on('start-server', () => {
         if (minecraftProcess) return socket.emit('console-output', '[PANEL] Sunucu saten çalışıyor!');
+        if (!SERVER_PATH || !fs.existsSync(SERVER_PATH)) return socket.emit('console-output', '[PANEL] Yol ayarlanmadı');
         
         let startFile = customStartPath;
         let useJar = false;
@@ -371,17 +370,6 @@ io.on('connection', (socket) => {
         pushLog('> ' + cmd); io.emit('console-output', '> ' + cmd);
     });
 
-    socket.on('get-settings', () => {
-        socket.emit('current-settings', { serverPath: currentServerPath, startFile: customStartPath });
-    });
-
-    socket.on('update-settings', (data) => {
-        currentServerPath = data.serverPath;
-        customStartPath = data.startFile;
-        saveConfig();
-        pushLog('[PANEL] Sunucu yolları kaydedildi.');
-        io.emit('console-output', '[PANEL] Sunucu yolları html üzerinden kaydedildi.');
-    });
 });
 
 // --- Başlatma ---
@@ -389,9 +377,7 @@ server.listen(PORT, async () => {
     console.log(`\n--- WEB PANEL ÇALIŞIYOR ---`);
     console.log(`-> Yerel Port: ${PORT}`);
     try {
-        const ngrokConfig = { addr: PORT };
-        if (process.env.NGROK_AUTHTOKEN) ngrokConfig.authtoken = process.env.NGROK_AUTHTOKEN;
-        const listener = await ngrok.forward(ngrokConfig);
+        const listener = await ngrok.forward({ addr: PORT });
         console.log(`-> NGROK TÜNELİ: ${listener.url()}`);
     } catch (err) {
         console.log(`-> Ngrok tünel hatası: ${err.message}`);
