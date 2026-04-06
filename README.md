@@ -52,7 +52,7 @@ BunyPanel/
 ### 2. Paketleri Kur
 
 ```bash
-npm install express socket.io dotenv
+npm install express socket.io dotenv ngrok
 ```
 
 ---

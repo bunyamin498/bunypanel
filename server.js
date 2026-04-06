@@ -6,7 +6,6 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const ngrok = require('@ngrok/ngrok');
-const localtunnel = require('localtunnel');
 const basicAuth = require('express-basic-auth');
 const multer  = require('multer');
 
@@ -462,25 +461,7 @@ server.listen(PORT, async () => {
         });
         console.log(`-> NGROK TÜNELİ: ${listener.url()}`);
     } catch (err) {
-        const errMsg = String(err.message || '');
-        if (errMsg.includes('4018') || errMsg.includes('verified account')) {
-            console.log(`\n[!] NGROK HATA KODU: 4018`);
-            console.log(`[!] Lütfen ngrok.com'a girip e-postanızı onaylayın!\n`);
-        } else {
-            console.log(`-> Ngrok tünel hatası: ${err.message}`);
-        }
-        
-        console.log(`-> Ngrok tüneli kullanılamıyor, otomatik olarak Localtunnel (B Planı) ile tünel açılıyor...`);
-        try {
-            const tunnel = await localtunnel({ port: PORT });
-            console.log(`-> LOCALTUNNEL URL: ${tunnel.url}`);
-            
-            tunnel.on('close', () => {
-                console.log('-> Localtunnel tüneli kapandı.');
-            });
-        } catch (ltErr) {
-            console.log(`-> Localtunnel başlatılırken hata oluştu: ${ltErr.message}`);
-        }
+        console.error(`-> Ngrok başlatılamadı, lütfen tokeni kontrol edin.`);
     }
     console.log(`---------------------------\n`);
 });
