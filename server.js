@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -5,6 +6,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const ngrok = require('@ngrok/ngrok');
+const localtunnel = require('localtunnel');
 const basicAuth = require('express-basic-auth');
 const multer  = require('multer');
 
@@ -26,9 +28,31 @@ let minecraftProcess = null;
 let consoleHistory = [];
 
 const PORT = 3000;
+const CONFIG_FILE = path.join(__dirname, 'panel-config.json');
+
 let SERVER_PATH = '';
-let currentServerPath = SERVER_PATH; 
 let customStartPath = ''; 
+
+if (fs.existsSync(CONFIG_FILE)) {
+    try {
+        const configData = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+        if (configData.serverPath) SERVER_PATH = configData.serverPath;
+        if (configData.startFile) customStartPath = configData.startFile;
+        console.log(`[PANEL] Kalıcı ayarlar yüklendi: SERVER_PATH = ${SERVER_PATH}`);
+    } catch (err) {
+        console.log(`[PANEL] Config okuma hatası: ${err.message}`);
+    }
+}
+
+let currentServerPath = SERVER_PATH; 
+
+function savePersistentConfig() {
+    try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify({ serverPath: SERVER_PATH, startFile: customStartPath }, null, 4), 'utf8');
+    } catch (err) {
+        console.log(`[PANEL] Ayar kaydetme hatası: ${err.message}`);
+    }
+}
 
 function pushLog(msg) {
     consoleHistory.push(msg);
@@ -53,8 +77,22 @@ function requireServerPath(req, res, next) {
 app.post('/api/set-path', (req, res) => {
     const requestedPath = req?.body?.path ? String(req.body.path).trim() : '';
     if (!requestedPath) return res.status(400).json({ success: false, error: 'path gerekli' });
+    
+    try {
+        if (!fs.existsSync(requestedPath)) {
+            return res.status(400).json({ error: 'HATA: Belirtilen yol bulunamadı!' });
+        }
+        if (!fs.statSync(requestedPath).isDirectory()) {
+            return res.status(400).json({ error: 'HATA: Masaüstü kısayolu (.lnk) veya dosya girdiniz! Lütfen klasörün GERÇEK yolunu girin.' });
+        }
+    } catch (err) {
+        return res.status(400).json({ error: 'HATA: Yol doğrulanırken bir hata oluştu.' });
+    }
+
     SERVER_PATH = requestedPath;
     currentServerPath = SERVER_PATH;
+    savePersistentConfig();
+    
     console.log(`[PANEL] SERVER_PATH set edildi: ${SERVER_PATH}`);
     res.json({ success: true, SERVER_PATH });
 });
@@ -295,6 +333,37 @@ app.get('/api/status', (req, res) => {
 
 // --- Socket.io ---
 io.on('connection', (socket) => {
+    socket.on('get-settings', () => {
+        socket.emit('current-settings', { serverPath: SERVER_PATH, startFile: customStartPath });
+    });
+
+    socket.on('update-settings', (data) => {
+        const reqPath = data.serverPath ? String(data.serverPath).trim() : '';
+        const reqFile = data.startFile ? String(data.startFile).trim() : '';
+
+        if (reqPath) {
+            try {
+                if (!fs.existsSync(reqPath)) {
+                    return socket.emit('console-output', `[PANEL] HATA: Belirtilen yol bulunamadı!`);
+                }
+                if (!fs.statSync(reqPath).isDirectory()) {
+                    return socket.emit('console-output', `[PANEL] HATA: Masaüstü kısayolu (.lnk) veya dosya girdiniz! Lütfen klasörün GERÇEK yolunu girin.`);
+                }
+            } catch (err) {
+                return socket.emit('console-output', `[PANEL] HATA: Yol doğrulaması çöktü: ${err.message}`);
+            }
+        }
+
+        SERVER_PATH = reqPath;
+        currentServerPath = SERVER_PATH;
+        customStartPath = reqFile;
+        
+        savePersistentConfig();
+        
+        socket.emit('console-output', `[PANEL] Yollar başarıyla kalıcı olarak dosyaya kaydedildi.`);
+        socket.emit('current-settings', { serverPath: SERVER_PATH, startFile: customStartPath });
+    });
+
     socket.emit('server-status', { running: minecraftProcess !== null });
     if (consoleHistory.length > 0) socket.emit('console-history', consoleHistory);
 
@@ -376,11 +445,42 @@ io.on('connection', (socket) => {
 server.listen(PORT, async () => {
     console.log(`\n--- WEB PANEL ÇALIŞIYOR ---`);
     console.log(`-> Yerel Port: ${PORT}`);
+    
+    // NGROK DEBUG
+    const token = process.env.NGROK_AUTH_TOKEN;
+    if (token) {
+        const maskedToken = token.length > 3 ? token.slice(0, 3) + '*'.repeat(token.length - 3) : '***';
+        console.log(`[DEBUG] NGROK Token okundu. İlk karakterler: ${maskedToken}`);
+    } else {
+        console.log(`[DEBUG] UYARI: NGROK_AUTH_TOKEN tanımlanmadı veya .env dosyası bulunamadı!`);
+    }
+
     try {
-        const listener = await ngrok.forward({ addr: PORT });
+        const listener = await ngrok.forward({
+            addr: PORT,
+            authtoken: process.env.NGROK_AUTH_TOKEN
+        });
         console.log(`-> NGROK TÜNELİ: ${listener.url()}`);
     } catch (err) {
-        console.log(`-> Ngrok tünel hatası: ${err.message}`);
+        const errMsg = String(err.message || '');
+        if (errMsg.includes('4018') || errMsg.includes('verified account')) {
+            console.log(`\n[!] NGROK HATA KODU: 4018`);
+            console.log(`[!] Lütfen ngrok.com'a girip e-postanızı onaylayın!\n`);
+        } else {
+            console.log(`-> Ngrok tünel hatası: ${err.message}`);
+        }
+        
+        console.log(`-> Ngrok tüneli kullanılamıyor, otomatik olarak Localtunnel (B Planı) ile tünel açılıyor...`);
+        try {
+            const tunnel = await localtunnel({ port: PORT });
+            console.log(`-> LOCALTUNNEL URL: ${tunnel.url}`);
+            
+            tunnel.on('close', () => {
+                console.log('-> Localtunnel tüneli kapandı.');
+            });
+        } catch (ltErr) {
+            console.log(`-> Localtunnel başlatılırken hata oluştu: ${ltErr.message}`);
+        }
     }
     console.log(`---------------------------\n`);
 });
